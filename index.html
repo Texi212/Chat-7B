@@ -2,134 +2,106 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Klassen-Chat</title>
+    <title>Flappy Bird JS</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; margin: 0; overflow: hidden; }
-        
-        /* Login Overlay */
-        #login-overlay { 
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.8); display: flex; justify-content: center; 
-            align-items: center; z-index: 1000; 
-        }
-        .login-box { background: white; padding: 30px; border-radius: 12px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
-        
-        /* Chat Layout */
-        #app { display: flex; flex-direction: column; height: 100vh; }
-        header { background: #007bff; color: white; padding: 15px; text-align: center; font-weight: bold; font-size: 1.2rem; }
-        
-        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #e5ddd5; }
-        .msg { background: white; padding: 10px 15px; border-radius: 15px; max-width: 70%; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
-        .msg b { color: #007bff; display: block; font-size: 0.8rem; margin-bottom: 3px; }
-        .my-msg { align-self: flex-end; background: #dcf8c6; }
-
-        /* Input */
-        .input-area { background: #f0f0f0; padding: 15px; display: flex; gap: 10px; align-items: center; }
-        input[type="text"] { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; }
-        button { padding: 10px 20px; border: none; border-radius: 25px; cursor: pointer; background: #007bff; color: white; font-weight: bold; }
-        
-        /* Admin */
-        #admin-panel { display: none; background: #1c1e21; color: white; padding: 30px; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000; }
+        body { margin: 0; overflow: hidden; display: flex; justify-content: center; align-items: center; height: 100vh; background: #70c5ce; }
+        canvas { border: 2px solid #000; background: #70c5ce; }
     </style>
 </head>
 <body>
-
-<div id="login-overlay">
-    <div class="login-box">
-        <h2>Wer bist du?</h2>
-        <input type="text" id="username-input" placeholder="Dein Name..." style="width: 80%; margin-bottom: 15px;">
-        <br>
-        <button onclick="saveName()">Chat betreten</button>
-    </div>
-</div>
-
-<div id="app">
-    <header>🏫 Klassenchat 10B</header>
-    <div id="chat-box"></div>
-    <div class="input-area">
-        <button onclick="document.getElementById('file-input').click()">📎</button>
-        <input type="file" id="file-input" style="display:none">
-        <input type="text" id="msg-input" placeholder="Nachricht..." onkeypress="handleEnter(event)">
-        <button onclick="sendMessage()">Senden</button>
-    </div>
-</div>
-
-<div id="admin-panel">
-    <h2>🛠 Admin Control Center</h2>
-    <p>Status: Aktiv</p>
-    <button onclick="clearChat()" style="background: #ff4757;">Gesamten Chat löschen</button>
-    <hr>
-    <h3>IP Sperre</h3>
-    <input type="text" id="ban-ip" placeholder="IP-Adresse">
-    <button onclick="banUser()" style="background: #e67e22;">Nutzer bannen</button>
-    <br><br>
-    <button onclick="closeAdmin()">Zurück</button>
-</div>
+    <canvas id="gameCanvas" width="320" height="480"></canvas>
 
 <script>
-    let currentUser = localStorage.getItem('chat_username');
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
-    // Prüfen ob Name schon existiert
-    if (currentUser) {
-        document.getElementById('login-overlay').style.display = 'none';
-    }
+// Spiel-Variablen
+let birdY = 200;
+let birdX = 50;
+let velocity = 0;
+let gravity = 0.25;
+let score = 0;
+let gameRunning = true;
 
-    function saveName() {
-        const name = document.getElementById('username-input').value.trim();
-        if (name) {
-            localStorage.setItem('chat_username', name);
-            currentUser = name;
-            document.getElementById('login-overlay').style.display = 'none';
+const pipes = [];
+const pipeWidth = 50;
+const pipeGap = 120;
+
+// Steuerung: Leertaste oder Klick
+const flap = () => { if(gameRunning) velocity = -5; else location.reload(); };
+document.addEventListener("keydown", (e) => { if(e.code === "Space") flap(); });
+canvas.addEventListener("mousedown", flap);
+
+function createPipe() {
+    const pipeTopHeight = Math.random() * (canvas.height - pipeGap - 100) + 50;
+    pipes.push({ x: canvas.width, top: pipeTopHeight });
+}
+
+function update() {
+    if (!gameRunning) return;
+
+    velocity += gravity;
+    birdY += velocity;
+
+    // Rohre bewegen
+    if (pipes.length === 0 || pipes[pipes.length - 1].x < canvas.width - 150) createPipe();
+
+    for (let i = pipes.length - 1; i >= 0; i--) {
+        pipes[i].x -= 2;
+
+        // Kollisionsprüfung
+        if (birdX + 20 > pipes[i].x && birdX < pipes[i].x + pipeWidth) {
+            if (birdY < pipes[i].top || birdY + 20 > pipes[i].top + pipeGap) {
+                gameRunning = false;
+            }
         }
+
+        // Punktzahl
+        if (pipes[i].x === birdX) score++;
+
+        // Rohr entfernen, wenn aus dem Bild
+        if (pipes[i].x + pipeWidth < 0) pipes.splice(i, 1);
     }
 
-    function handleEnter(e) {
-        if (e.key === 'Enter') {
-            sendMessage();
-        }
-    }
+    // Boden/Decke Kollision
+    if (birdY + 20 > canvas.height || birdY < 0) gameRunning = false;
+}
 
-    function sendMessage() {
-        const input = document.getElementById('msg-input');
-        const text = input.value.trim();
-        
-        if (text !== "") {
-            const chatBox = document.getElementById('chat-box');
-            const msgDiv = document.createElement('div');
-            msgDiv.className = 'msg my-msg';
-            msgDiv.innerHTML = `<b>${currentUser}</b>${text}`;
-            
-            chatBox.appendChild(msgDiv);
-            input.value = "";
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    }
+function draw() {
+    // Hintergrund löschen
+    ctx.fillStyle = "#70c5ce";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Admin Logik via URL Hash (#admin)
-    window.onhashchange = function() {
-        if(window.location.hash === '#admin') {
-            document.getElementById('admin-panel').style.display = 'block';
-        }
-    };
+    // Vogel zeichnen
+    ctx.fillStyle = "yellow";
+    ctx.fillRect(birdX, birdY, 20, 20);
 
-    function closeAdmin() {
-        window.location.hash = "";
-        document.getElementById('admin-panel').style.display = 'none';
-    }
+    // Rohre zeichnen
+    ctx.fillStyle = "green";
+    pipes.forEach(p => {
+        ctx.fillRect(p.x, 0, pipeWidth, p.top); // Oben
+        ctx.fillRect(p.x, p.top + pipeGap, pipeWidth, canvas.height); // Unten
+    });
 
-    function clearChat() {
-        if(confirm("Wirklich alles löschen?")) {
-            document.getElementById('chat-box').innerHTML = "";
-            alert("Chat wurde geleert.");
-        }
-    }
+    // Score zeichnen
+    ctx.fillStyle = "white";
+    ctx.font = "24px Arial";
+    ctx.fillText(`Score: ${score}`, 10, 30);
 
-    function banUser() {
-        const ip = document.getElementById('ban-ip').value;
-        alert("IP " + ip + " wurde auf die Sperrliste gesetzt.");
+    if (!gameRunning) {
+        ctx.fillText("GAME OVER", 90, 240);
+        ctx.font = "16px Arial";
+        ctx.fillText("Klick zum Neustart", 95, 270);
     }
+}
+
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
+
+gameLoop();
 </script>
-
 </body>
 </html>
